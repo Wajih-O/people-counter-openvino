@@ -1,0 +1,59 @@
+version: '2.1'
+
+
+networks:
+  default:
+    external:
+      name: people-counter
+
+
+services:
+  people-counter:
+    hostname: people-counter
+    container_name: people-counter
+    build:
+      context: ./people-counter
+    environment:
+      DEVICE: CPU
+    volumes:
+      - ./people-counter:/home/openvino/people-counter
+    ports:
+      - "3000:3000"
+    depends_on:
+      - ffserver
+      - ffserver2
+      - mqtt
+
+  ffserver:
+      image: mokwang/ffserver
+      hostname: ffserver
+      container_name: ffserver
+      ports:
+        - "554:554"
+        - "3004:3004"
+      volumes:
+        - ./ffmpeg/server.conf:/etc/ffserver.conf
+        - ./ffmpeg/data:/data-1
+      restart: always
+
+  ffserver2:
+      build:
+        context: ./ffmpeg-test
+      hostname: ffserver2
+      container_name: ffserver2
+      volumes:
+        - ./ffmpeg/data:/data
+      ports:
+        - "3005:3005"
+
+  mqtt:
+    hostname: mqtt
+    container_name: mqtt
+    build:
+      context: ./mqtt
+    ports:
+      - 1883:1883
+      - 9123:9001
+
+
+
