@@ -1,11 +1,9 @@
 version: '2.1'
 
-
 networks:
   default:
     external:
       name: people-counter
-
 
 services:
   people-counter:
@@ -22,18 +20,6 @@ services:
     depends_on:
       - ffserver
       - mqtt
-
-  # ffserver-old-test:
-  #     image: mokwang/ffserver
-  #     hostname: ffserver
-  #     container_name: ffserver
-  #     ports:
-  #       - "554:554"
-  #       - "3004:3004"
-  #     volumes:
-  #       - ./ffmpeg/server.conf:/etc/ffserver.conf
-  #       - ./ffmpeg/data:/data
-  #     restart: always
 
   ffserver:
       build:
