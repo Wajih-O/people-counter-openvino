@@ -22,9 +22,7 @@ INPUT_STREAM = "./data/Pedestrian_Detect_2_1_1.mp4"
 
 
 # MQTT server environment variables
-HOSTNAME = socket.gethostname()
-IPADDRESS = socket.gethostbyname(HOSTNAME)
-MQTT_HOST = IPADDRESS
+MQTT_HOST = "mqtt"
 MQTT_PORT = 1883
 MQTT_KEEPALIVE_INTERVAL = 60
 
