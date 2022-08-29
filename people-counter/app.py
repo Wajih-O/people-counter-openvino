@@ -1,14 +1,13 @@
 import argparse
 import json
-import socket
+import os
 import sys
 
 from random import randint
 from time import monotonic
 
 import cv2
-
-# import numpy as np
+import numpy as np
 
 import paho.mqtt.client as mqtt
 
@@ -44,7 +43,23 @@ def get_args():
     return args
 
 
-def infer_on_video(args, model="pedestrian-detection-adas-0002", precision="FP32"):
+def ensure_output_directory(output_directory: str):
+    """Ensure output directory exists (todo: try to create it)"""
+    if os.path.exists(output_directory):
+        if not os.path.isdir(output_directory):
+            raise Exception(f"{output_directory} is not a directory")
+    else:
+        os.makedirs(output_directory)
+
+
+def infer_on_video(
+    args,
+    model="pedestrian-detection-adas-0002",
+    precision="FP32",
+    output_directory="./output/",
+):
+
+    ensure_output_directory(output_directory=output_directory)
 
     # Connect to the MQTT server (using MQTT protocol: both MQTT and websocket are enabled in MQTT container)
     client = mqtt.Client()
@@ -67,9 +82,10 @@ def infer_on_video(args, model="pedestrian-detection-adas-0002", precision="FP32
         (output_dimension.width, output_dimension.height),
     )
 
-    pedestrians_in_frame = [
-        0
-    ]  # initialized (a time series for People/Pedestrian count)
+    frames_window = 10  #  last frame(s) window
+    threshold = 0.7
+    pedestrians_in_frame = [0]  # initialized (a time series for people in the frame)
+    smoothed_pedestrians_in_frame = [0]  # averaged last (frames_window) frame
 
     start = monotonic()
     last_frame = False
@@ -87,23 +103,26 @@ def infer_on_video(args, model="pedestrian-detection-adas-0002", precision="FP32
             image,
             (output_dimension.width, output_dimension.height),
         )
-        pedestrians = pedestrian_detection.detect(image)
+        pedestrians = pedestrian_detection.detect(image, min_confidence=0.85)[:1]
+        # TODO: use Jaccard index to remove the non-maxima (instead of limiting the pedestrian to 1)
+        #  -> that should lead to the same behavior (with a fairly high min confidence)
 
-        if len(pedestrians) != pedestrians_in_frame[-1]:
-            if pedestrians_in_frame[-1] == 0:
+        pedestrians_in_frame.append(len(pedestrians))
+        smoothed_pedestrians_in_frame.append(
+            int(np.mean(pedestrians_in_frame[-frames_window:]) > threshold)
+        )
+        if smoothed_pedestrians_in_frame[-2] != smoothed_pedestrians_in_frame[-1]:
+            if pedestrians_in_frame[-2] == 0:
                 start = monotonic()
+                client.publish(
+                    "person", json.dumps({"count": smoothed_pedestrians_in_frame[-1]})
+                )
 
-            if pedestrians_in_frame[-1] > 0:  # assumes one person in the scene
+            if pedestrians_in_frame[-1] == 1:  # assumes one person in the scene
                 client.publish(
                     "person/duration", json.dumps({"duration": monotonic() - start})
                 )
 
-        if len(pedestrians):
-            client.publish(
-                "person/duration", json.dumps({"duration": monotonic() - start})
-            )  # continuously updated person duration in the scene
-
-        pedestrians_in_frame.append(len(pedestrians))
         for pedestrian in pedestrians:
             output_frame = cv2.resize(
                 pedestrian.draw(output_frame),
@@ -130,6 +149,21 @@ def infer_on_video(args, model="pedestrian-detection-adas-0002", precision="FP32
     cv2.destroyAllWindows()
     # Disconnect from MQTT
     client.disconnect()
+
+    # saving perf. statistics/summary
+    perf_stats = {"precision": precision, "average_prediction_time": {}}
+    if pedestrian_detection.prediction_time:
+        perf_stats["average_prediction_time"][
+            pedestrian_detection.model_name
+        ] = np.mean(pedestrian_detection.prediction_time)
+    with open(
+        os.path.join(
+            output_directory,
+            f"perf_summary_{pedestrian_detection.model_name}_{precision}.json",
+        ),
+        "w",
+    ) as perf_output:
+        json.dump(perf_stats, perf_output)
 
 
 def main():
