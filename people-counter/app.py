@@ -10,37 +10,18 @@ import cv2
 import numpy as np
 
 import paho.mqtt.client as mqtt
+from commandr import command, Run
 
-# from openvino_utils.input_feeder import InputFeeder
 from openvino_utils.utils import ImageDimension
 from openvino_utils.video_utils import codec
 
 from pedestrian_detection import PedestrianDetection
-
-INPUT_STREAM = "./data/Pedestrian_Detect_2_1_1.mp4"
 
 
 # MQTT server environment variables
 MQTT_HOST = "mqtt"
 MQTT_PORT = 1883
 MQTT_KEEPALIVE_INTERVAL = 60
-
-
-def get_args():
-    """
-    Gets the arguments from the command line.
-    """
-    parser = argparse.ArgumentParser("Run inference on an input video")
-    # -- Create the descriptions for the commands
-    i_desc = "The location of the input file"
-    d_desc = "The device name, if not 'CPU'"
-
-    # -- Create the arguments
-    parser.add_argument("-i", help=i_desc, default=INPUT_STREAM)
-    parser.add_argument("-d", help=d_desc, default="CPU")
-    args = parser.parse_args()
-
-    return args
 
 
 def ensure_output_directory(output_directory: str):
@@ -52,12 +33,29 @@ def ensure_output_directory(output_directory: str):
         os.makedirs(output_directory)
 
 
-def infer_on_video(
-    args,
+@command
+def infer(
+    models_root_dir="./models/intel",
     model="pedestrian-detection-adas-0002",
-    precision="FP32",
+    model_precision="FP16",
+    input_file="./data/Pedestrian_Detect_2_1_1.mp4",
     output_directory="./output/",
+    frames_window=10,  # last frame(s) window to smooth detection per frame signal/time-series
+    threshold=0.7,
 ):
+
+    """Main function to infer video:detect persons in video frames, process it to extract the entry and leave the scene
+    output augmented output frames to sys.stdout and publish detection statistics to MQTT.
+
+
+    :param models_root_dir : root directory for the (xml/bin) models
+    :param model: model name
+    :param model_precision: model precision (default FP16)
+    :param input_file: data source when the type is set to video
+    :param output_directory: output directory for the generated artifacts control video capture and benchmarking data
+    :param frames_window: last frame(s) window to smooth detection per frame signal/time-series
+
+    """
 
     ensure_output_directory(output_directory=output_directory)
 
@@ -66,12 +64,12 @@ def infer_on_video(
     client.connect(MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE_INTERVAL)
 
     # Get and open video capture
-    cap = cv2.VideoCapture(args.i)
-    cap.open(args.i)
+    cap = cv2.VideoCapture(input_file)
+    cap.open(input_file)
 
     output_dimension = ImageDimension(x=1280, y=720).scale(1)
     pedestrian_detection = PedestrianDetection(
-        model_directory=f"./models/intel/{model}/{precision}"
+        model_name=model, model_directory=f"{models_root_dir}/{model}/{model_precision}"
     )
     pedestrian_detection.load_model()
 
@@ -82,13 +80,11 @@ def infer_on_video(
         (output_dimension.width, output_dimension.height),
     )
 
-    frames_window = 10  #  last frame(s) window
-    threshold = 0.7
     pedestrians_in_frame = [0]  # initialized (a time series for people in the frame)
     smoothed_pedestrians_in_frame = [0]  # averaged last (frames_window) frame
 
     start = monotonic()
-    last_frame = False
+    # last_frame = False
 
     # Process frames until the video ends, or process is exited
     while cap.isOpened():
@@ -151,7 +147,7 @@ def infer_on_video(
     client.disconnect()
 
     # saving perf. statistics/summary
-    perf_stats = {"precision": precision, "average_prediction_time": {}}
+    perf_stats = {"precision": model_precision, "average_prediction_time": {}}
     if pedestrian_detection.prediction_time:
         perf_stats["average_prediction_time"][
             pedestrian_detection.model_name
@@ -159,17 +155,12 @@ def infer_on_video(
     with open(
         os.path.join(
             output_directory,
-            f"perf_summary_{pedestrian_detection.model_name}_{precision}.json",
+            f"perf_summary_{pedestrian_detection.model_name}_{model_precision}.json",
         ),
         "w",
     ) as perf_output:
         json.dump(perf_stats, perf_output)
 
 
-def main():
-    args = get_args()
-    infer_on_video(args)
-
-
 if __name__ == "__main__":
-    main()
+    Run()
