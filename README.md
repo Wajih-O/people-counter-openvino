@@ -4,7 +4,7 @@
 |-----------------------|---------------|
 | Programming Language: |  Python 3.8 |
 
-![people-counter-python](./images/people-counter-image.png)
+![people-counter-python](./images/people_counter.gif)
 
 ## Table of contents
 
@@ -37,7 +37,7 @@ The counter uses the Inference Engine included in the Intel® Distribution of Op
 
 ### Software
 
-This implementation is dockerized (self-contained) with multiple services/components:
+This implementation is docker-compose based (self-contained) with multiple services/components:
 
 1. **people-counter** service containing the core and UI services:
     1. A core application/command that processes the input video frame by frame, detects the person and publishes the statistics to MQTT and the output frames to **ffserver**
