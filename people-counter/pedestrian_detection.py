@@ -26,7 +26,7 @@ class PedestrianDetection(SingleImageOpenVinoModel):
     def infer(
         self,
         image: np.ndarray,
-    ) -> List[RatioDetection]:
+    ) -> np.ndarray:
         """Extract sematic segmentation"""
 
         # check if the image is matching the expected dimension otherwise pre-process it
@@ -34,8 +34,14 @@ class PedestrianDetection(SingleImageOpenVinoModel):
         if to_infer.shape != self.expected_input_shape:
             to_infer = self.preprocess_input(to_infer)
         # run inference
-        results = self.predict(to_infer)["detection_out"][0][0]
-        return results
+        prediction_results = self.predict(to_infer)
+        if "detection_out" in  prediction_results:
+            return self.predict(to_infer)["detection_out"][0][0]
+
+        if "DetectionOutput" in prediction_results:
+            return self.predict(to_infer)["DetectionOutput"][0][0]
+
+        raise Exception("non supported results")
 
     def detect(
         self,
@@ -53,12 +59,7 @@ class PedestrianDetection(SingleImageOpenVinoModel):
         """
         # Check if the model is loaded correctly!
         if detections is None:
-            # check if the image is matching the expected dimension otherwise pre-process it
-            to_infer = image.copy()
-            if to_infer.shape != self.expected_input_shape:
-                to_infer = self.preprocess_input(to_infer)
-            # run inference
-            detections = self.predict(to_infer)["detection_out"][0][0]
+            detections = self.infer(image)
 
         # filter the detection to keep only high confidence detection (bounding boxes)
         filtered = detections[detections[:, 2] >= min_confidence]
