@@ -108,13 +108,12 @@ def infer(
             int(np.mean(pedestrians_in_frame[-frames_window:]) > threshold)
         )
         if smoothed_pedestrians_in_frame[-2] != smoothed_pedestrians_in_frame[-1]:
-            if pedestrians_in_frame[-2] == 0:
+            if smoothed_pedestrians_in_frame[-1] == 1:
                 start = monotonic()
                 client.publish(
                     "person", json.dumps({"count": smoothed_pedestrians_in_frame[-1]})
                 )
-
-            if pedestrians_in_frame[-1] == 1:  # assumes one person in the scene
+            else:  # assumes one person in the scene
                 client.publish(
                     "person/duration", json.dumps({"duration": monotonic() - start})
                 )
