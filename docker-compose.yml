@@ -11,6 +11,8 @@ services:
     container_name: people-counter
     build:
       context: ./people-counter
+      args:
+        - DISPLAY=${DISPLAY}
     environment:
       DEVICE: CPU
     volumes:
