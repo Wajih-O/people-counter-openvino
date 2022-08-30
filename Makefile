@@ -1,6 +1,11 @@
 build:
 	docker-compose up -d --build
 
+down:
+	docker-compose down
+
+start-ui:
+	docker exec `docker ps | grep people-counter_people-counter | awk '{ print $$1 }'` ./scripts/start_ui.sh
 
 download-models:
 	cd ./people-counter && ./scripts/download_models.sh models.txt
