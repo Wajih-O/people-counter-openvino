@@ -53,9 +53,10 @@ This implementation is docker-compose based (self-contained) with multiple servi
 
 The project provides a convenient way providing a helper to download the models passing a `model.txt` (intel OpenVino models names new line separated) ex: `./scripts/download_models.sh model.txt`
 
-### Not already converted to IR
+### ssd_mobilenet_v2_coco converted to IR
 
-It is up to you to decide on what model to use for the application. You need to find a model not already converted to Intermediate Representation format (i.e. not one of the Intel® Pre-Trained Models), convert it, and utilize the converted model in your application.
+
+We also provided/run with a locally converted **ssd_mobilenet_v2_coco_2018_03_29**  model the IR model is provided within the repo
 
 ## Run the application
 
@@ -73,7 +74,15 @@ or using the Makefile recipe
 make build
 ```
 
-### Run the application with a specific model.
+then
+
+```bash
+make download-models
+```
+
+to download two selected intel models (in addition to the existing one converted to IR)
+
+### Run the application with a specific model
 
 When all containers are up and running:
 
@@ -86,6 +95,26 @@ make run-default
 
 (Noe that we need to refresh the UI  (reload the page) before each run ex: `make run-default` to re-initialize the total count)
 
+Makefile provides also more recipes to run the app with different models.
+
+```bash
+make run-model-1
+```
+
+to run the app on the demo video using **pedestrian-detection-adas-0002** model
+
+```bash
+make run-model-2
+```
+
+to run the app on the demo video using **person-detection-0201** model
+
+```bash
+make run-converted
+```
+
+to run the app on the demo video using the locally IR converted ssd_mobilenet_v2_coco_2018_03_29"
+
 ## Handling incorrect detections
 
 To handle incorrect decisions (frames with missing detection/ or false positive ones) and ensure a consistently correct total count we:
@@ -97,3 +126,5 @@ To handle incorrect decisions (frames with missing detection/ or false positive 
 ![processing validation](./images/processing_validation.png)
 
 That validates the chosen parameters with a recurrent pattern of 6 persons entering and leaving the scene.
+
+The app params are calibrated (running better) with **pedestrian-detection-adas-0002** and  **person-detection-0201** models
